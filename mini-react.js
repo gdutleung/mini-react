@@ -1,44 +1,6 @@
 const RENDER_TO_DOM = Symbol("render to dom")
 
 
-class ElementWrapper {
-  constructor(type) {
-    this.root = document.createElement(type)
-  }
-  setAttribute(name, value) {
-    if (name.match(/^on([\s\S]+)$/)) {
-      // 事件绑定
-      this.root.addEventListener(RegExp.$1.replace(/^[\s\S]/, c => c.toLowerCase()), value)
-    } else {
-      if (name === 'className') {
-        this.root.setAttribute("class", value)
-      } else {
-        this.root.setAttribute(name, value)
-      }
-    }
-  }
-  appendChild(component) {
-    const range = document.createRange()
-    range.setStart(this.root, this.root.childNodes.length)
-    range.setEnd(this.root, this.root.childNodes.length)
-    component[RENDER_TO_DOM](range)
-  }
-  [RENDER_TO_DOM](range) {
-    range.deleteContents()
-    range.insertNode(this.root)
-  }
-}
-
-class TextWrapper {
-  constructor(content) {
-    this.root = document.createTextNode(content)
-  }
-  [RENDER_TO_DOM](range) {
-    range.deleteContents()
-    range.insertNode(this.root)
-  }
-}
-
 export class Component {
   constructor() {
     this.props = Object.create(null)
@@ -51,6 +13,9 @@ export class Component {
   }
   appendChild(component) {
     this.children.push(component)
+  }
+  get VNode() {
+    return this.render().VNode
   }
   [RENDER_TO_DOM](range) {
     this._range = range
@@ -86,6 +51,63 @@ export class Component {
     this.reRender()
   }
 }
+
+class ElementWrapper extends Component {
+  constructor(type) {
+    super(type)
+    this.type = type
+    this.root = document.createElement(type)
+  }
+  // setAttribute(name, value) {
+  //   if (name.match(/^on([\s\S]+)$/)) {
+  //     // 事件绑定
+  //     this.root.addEventListener(RegExp.$1.replace(/^[\s\S]/, c => c.toLowerCase()), value)
+  //   } else {
+  //     if (name === 'className') {
+  //       this.root.setAttribute("class", value)
+  //     } else {
+  //       this.root.setAttribute(name, value)
+  //     }
+  //   }
+  // }
+  // appendChild(component) {
+  //   const range = document.createRange()
+  //   range.setStart(this.root, this.root.childNodes.length)
+  //   range.setEnd(this.root, this.root.childNodes.length)
+  //   component[RENDER_TO_DOM](range)
+  // }
+  get VNode() {
+      return {
+        type: this.type,
+        props: this.props,
+        children: this.children.map(child => child.VNode)
+      }
+  }
+  [RENDER_TO_DOM](range) {
+    range.deleteContents()
+    range.insertNode(this.root)
+  }
+}
+
+class TextWrapper extends Component {
+  constructor(content) {
+    super(content)
+    this.content = content
+    this.root = document.createTextNode(content)
+  }
+  get VNode() {
+    return {
+      type: "#text",
+      content: this.content
+    }
+  }
+  [RENDER_TO_DOM](range) {
+    range.deleteContents()
+    range.insertNode(this.root)
+  }
+}
+
+
 
 export function createElement(type, attributes, ...children) {
   let e
